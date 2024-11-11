@@ -105,18 +105,18 @@ function zoom_reset(){
             zoom_auto=0; // 未登録 zoom 無し
             zoom_value=1; }} // entryBodyが取得出来ない場合
 
-    ch_zoom(zoom_value); // Chrome場合 拡大実行
+    rp_zoom(zoom_value); // 拡大実行
 
 } // zoom_reset() zoom値の選択と拡大実行
 
 
 
-function ch_zoom(val){ // Chrome用のページ拡大コードを生成
+function rp_zoom(val){ // ページ拡大コードを生成
     let style;
 
     if(val!=1){
         style=
-            '<style id=chzoom>'+
+            '<style id=rpzoom>'+
             'body { zoom: '+ val +' } '+
             '#ambHeader, footer, .ReactModalPortal { zoom: '+ 1/val +' } '+
             '._bN4heQrF, ._3Rji1fad { display: none } ';
@@ -125,7 +125,7 @@ function ch_zoom(val){ // Chrome用のページ拡大コードを生成
                 'html { font-size: '+ (htm_font())*val +'%; }'; }}
     else{
         style=
-            '<style id=chzoom>'+
+            '<style id=rpzoom>'+
             '._bN4heQrF, ._3Rji1fad { display: none } '; }
 
     style+=
@@ -144,7 +144,7 @@ function ch_zoom(val){ // Chrome用のページ拡大コードを生成
         style+=
             'box-shadow: -10px 0 0 #9c27b0; padding-left: 5px }</style>'; }
 
-    if(!document.querySelector('#chzoom')){
+    if(!document.querySelector('#rpzoom')){
         document.documentElement.insertAdjacentHTML('beforeend', style); }
 
 
@@ -165,7 +165,7 @@ function ch_zoom(val){ // Chrome用のページ拡大コードを生成
 
     } // htm_font()
 
-} // ch_zoom()
+} // rp_zoom()
 
 
 
@@ -219,7 +219,7 @@ function backup(){
                 z_num.stepDown(); }
             if(edit_mode==1){
                 remove_style();
-                ch_zoom(z_num.value/100); }}
+                rp_zoom(z_num.value/100); }}
 
 
         z_num.onchange=function(event){
@@ -231,7 +231,7 @@ function backup(){
                 else if(z_num.value>200){
                     z_num.value=200; }
                 remove_style();
-                ch_zoom(z_num.value/100); }}
+                rp_zoom(z_num.value/100); }}
 
 
         let z_set=z_panel.querySelector('#z_set');
@@ -316,11 +316,11 @@ function backup(){
                           "　　　Importファイルは 「remember_zoom ... 」の名前です"); }}});
 
 
-
+        let dp=window.devicePixelRatio;
+        let browser_mag=Math.round(dp*100);
         let z_mag=z_panel.querySelector('#z_mag');
-        let chrome_value=Math.round(((window.outerWidth - 16) / window.innerWidth)*100);
-        if(chrome_value!=100){
-            z_mag.innerHTML='Basic ' + chrome_value + '%';
+        if(browser_mag!=100){
+            z_mag.innerHTML='Basic ' + browser_mag + '%';
 
             z_panel.style.zIndex='2';
             setTimeout(()=>{
@@ -339,8 +339,8 @@ function backup(){
 
 
 function remove_style(){
-    if(document.querySelector('#chzoom')){
-        document.querySelector('#chzoom').remove(); }}
+    if(document.querySelector('#rpzoom')){
+        document.querySelector('#rpzoom').remove(); }}
 
 
 
