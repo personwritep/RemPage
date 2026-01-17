@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        RemPage
 // @namespace        http://tampermonkey.net/
-// @version        4.1
+// @version        4.2
 // @description        ブログページ拡大表示をブログ単位で記録・固定(zoom使用)
 // @author        Ameba Blog User
 // @match        https://ameblo.jp/*
@@ -122,14 +122,14 @@ function rp_zoom(val){ // ページ拡大コードを生成
             '<style id=rpzoom>'+
             'body { zoom: '+ val +' } '+
             '#ambHeader, footer, .ReactModalPortal { zoom: '+ 1/val +' } '+
-            '._bN4heQrF, ._3Rji1fad { display: none } ';
+            '._sMG87wzO, ._5TpaM9FS { display: none } ';
         if(ua==1){
             style+=
                 'html { font-size: '+ (htm_font())*val +'%; }'; }}
     else{
         style=
             '<style id=rpzoom>'+
-            '._bN4heQrF, ._3Rji1fad { display: none } '; }
+            '._sMG87wzO, ._5TpaM9FS { display: none } '; }
 
     style+=
         '#ambHeader img[alt="Ameba"] { filter: contrast(6) hue-rotate(90deg); ';
