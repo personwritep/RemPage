@@ -1,0 +1,474 @@
+// ==UserScript==
+// @name         Remember My Page
+// @namespace    http://tampermonkey.net/
+// @version      1.8
+// @description  ブログページのブラウザ拡大率をユーザー単位で記録・固定(zoom / transform 使用)
+// @author       Ameba Blog User
+// @match        https://ameblo.jp/*
+// @match        https://secret.ameba.jp/*
+// @exclude      https://ameblo.jp/*/image*
+// @noframes
+// @grant        none
+// ==/UserScript==
+
+
+let remember_data={}; // ブログ登録データ
+let remember_id=[];
+let remember_zoom=[];
+let am=0;
+let iine_lock=0;
+let z_button;
+let user_id;
+let zoom_value;
+let zoom_auto=0;
+let edit_mode=0;
+let win_html=document.querySelector('html');
+
+let ua=0;
+let agent=window.navigator.userAgent.toLowerCase();
+if(agent.indexOf('firefox') > -1){ ua=1; } // Firefoxの場合のフラッグ
+
+reg_set();
+
+function reg_set(){
+    let read_json=localStorage.getItem('remember_zoom'); // ローカルストレージ 保存名
+    remember_data=JSON.parse(read_json);
+    if(remember_data==null){
+        if(document.querySelector('#ambHeader img[alt="Ameba"]')){
+            remember_data=[['user', 'zoom']]; } // 一般ブログ記事データ
+        else if(document.querySelector('.-ameblo-cmnhf-logo')){
+            remember_data=[['u_am', 'zoom']]; }} // アメンバー記事データ
+
+    remember_id=[]; // 配列をリセット
+    remember_zoom=[]; // 配列をリセット
+
+    for(let k=0; k<remember_data.length; k++){
+        remember_id[k]=remember_data[k][0];
+        remember_zoom[k]=remember_data[k][1]; }}
+
+
+
+let target0=document.querySelector('head'); // 監視 target
+let monitor0=new MutationObserver(do_zoom);
+monitor0.observe(target0, { childList: true }); // 監視開始
+
+function do_zoom(){
+    zoom_reset();
+
+    if(am==0){
+        z_button=document.querySelector('#ambHeader img[alt="Ameba"]'); }
+    else if(am==1){
+        z_button=document.querySelector('.-ameblo-cmnhf-logo'); }
+
+    if(z_button){
+        if(zoom_auto==0){ // 未登録 zoom 無し
+            z_button.style.filter='contrast(6) hue-rotate(90deg)';
+            z_button.style.boxShadow='none';
+            z_button.style.paddingLeft='0'; }
+        else if(zoom_auto==1){ // 未登録 auto zoom
+            z_button.style.filter='contrast(6) hue-rotate(90deg)';
+            z_button.style.boxShadow='-10px 0 0 0 #e98200';
+            z_button.style.paddingLeft='5px'; }
+        else if(zoom_auto==2){ // 登録有 manual zoom
+            z_button.style.filter='contrast(6) hue-rotate(90deg)';
+            z_button.style.boxShadow='-10px 0 0 0 #7aff00';
+            z_button.style.paddingLeft='5px'; }
+        else if(zoom_auto==3){ // 登録有 100% zoom
+            z_button.style.filter='contrast(6) hue-rotate(90deg)';
+            z_button.style.boxShadow='-10px 0 0 0 #9c27b0';
+            z_button.style.paddingLeft='5px'; }
+
+        z_button.onclick=function(event){ // Amebaアイコンのクリック
+            event.preventDefault(); // クリックしてもホームに飛ばさない
+            local_backup(); }}
+} //do_zoom()
+
+
+
+function zoom_reset(){
+    user_id=document.location.pathname.split("/")[1]; // ユーザーIDを取得
+
+    if(document.querySelector('.-ameblo-cmnhf-logo')){
+        am=1; } // アメンバー記事のフラグ
+
+    if(remember_id.indexOf(user_id)!=-1){
+        zoom_value=remember_zoom[remember_id.indexOf(user_id)];
+        if(zoom_value==1){
+            zoom_auto=3; } // 登録有 100% zoom を適用
+        else { zoom_auto=2; }} // 登録有 manual zoom を適用
+    else{
+        let entryBody=document.querySelector('#entryBody');
+        if(entryBody){
+            if(getComputedStyle(entryBody, null).fontSize=='14px'){ // 未登録14px型
+                zoom_auto=1; // 未登録 auto zoom を適用
+                zoom_value=1.14; }
+            else{
+                zoom_auto=0; // 未登録 zoom 無し
+                zoom_value=1; }}
+        else{
+            zoom_auto=0; // 未登録 zoom 無し
+            zoom_value=1; }} // entryBodyが取得出来ない場合
+
+    let zz_input=document.querySelector('#z_input');
+    if(zz_input){
+        zz_input.value=Math.round(zoom_value*100); } // 拡大率表示を更新
+
+    if(am==0){
+        z_button=document.querySelector('#ambHeader img[alt="Ameba"]');
+        if(z_button && z_button.style.opacity=='0.5'){
+            iine_lock=1; }}
+    else if(am==1){
+        z_button=document.querySelector('.-ameblo-cmnhf-logo');
+        if(z_button && z_button.style.opacity=='0.5'){
+            iine_lock=1; }}
+
+    if(ua==0 && iine_lock==0){ // Chromeの場合 拡大実行
+        ch_zoom(zoom_value); }
+
+    else if(ua==1 && iine_lock==0){ // Firefoxの場合 拡大実行
+        fx_zoom(zoom_value); }
+
+} // 開いた画面にzoom値を設定して拡大
+
+
+
+function ch_zoom(zoom_value){ // Chrome用のページ拡大コード
+    document.body.style.zoom=zoom_value; // bodyにzoom指定
+
+    let ambHeader=document.querySelector('#ambHeader');
+    if(ambHeader){
+        ambHeader.style.zoom=1/zoom_value; }
+
+    let footer=document.querySelector('footer');
+    if(footer){
+        footer.style.zoom=1/zoom_value; }
+
+    let footer1=document.querySelector('._20TD20u0');
+    if(footer1){
+        footer1.style.display='none'; }
+
+    let footer2=document.querySelector('._HQiG1eoZ');
+    if(footer2){
+        footer2.style.display='none'; }
+
+    let modal=document.querySelectorAll('.ReactModalPortal');
+    for(let k=0; k<modal.length; k++){
+        modal[k].style.zoom=1/zoom_value; }} // モーダル画面のzoomリセット
+
+
+
+function fx_zoom(zoom_value){ // Firefox用のページ拡大コード
+    let modal=document.querySelector('.ReactModalPortal > div');
+    if(!modal){
+        document.body.style.transform='scale(' + zoom_value + ')';
+        document.body.style.width=Math.round(1000/zoom_value)/10 + '%';
+        document.body.style.transformOrigin='left 41px 0';
+
+        let ambHeader=document.querySelector('#ambHeader');
+        if(ambHeader){
+            fzoom(ambHeader);
+            ambHeader.style.transformOrigin='left 41px 0'; }
+
+        let footer=document.querySelector('footer');
+        if(footer){
+            fzoom(footer); }
+
+        let footer1=document.querySelector('._20TD20u0');
+        if(footer1){
+            footer1.style.display='none'; }
+
+        let footer2=document.querySelector('._HQiG1eoZ');
+        if(footer2){
+            footer2.style.display='none'; }}
+    else{
+        document.body.style.transform='unset'; // モーダル表示時に拡大停止
+        document.body.style.width='100%'; }
+
+    function fzoom(ob){
+        ob.style.transform='scale(' + 1/zoom_value + ')';
+        ob.style.transformOrigin='top left';
+        ob.style.width='98.6vw'; }
+
+} // fx_zoom() Firefox用のページ拡大コード
+
+
+
+function local_backup(){
+    edit_mode=1;
+    win_html.style.overflow='hidden'; // ウインドウのスクロールを抑止
+
+    let z_panel=document.createElement('div');
+    let panel_style;
+    if(am==0){
+        panel_style=
+            'position: absolute; top: 3px; left: 0; z-index: 0; '+
+            'color: #333; background: #fff; padding: 5px 0 5px 15px; width: 400px;'; }
+    if(am==1){
+        panel_style=
+            'position: absolute; top: 0; left: 0; z-index: 0; '+
+            'color: #333; background: #fff; padding: 3px 0 2px 15px; width: 400px;'; }
+    z_panel.setAttribute('style', panel_style);
+    z_panel.setAttribute('id', 'z_panel');
+    if(am==0){
+        document.querySelector('#ambHeader div:first-child').appendChild(z_panel); }
+    else if(am==1){
+        document.querySelector('#ambHeaderLeft').appendChild(z_panel); }
+
+    if(ua==0){
+        z_panel.innerHTML=
+            '<style>input[type="number"]::-webkit-inner-spin-button { '+
+            '-webkit-appearance: none; }</style>'; } // 拡大率設定枠のデザイン
+    else if(ua==1){
+        z_panel.innerHTML=
+            '<style>input[type="number"]{ -moz-appearance:textfield; }</style>'; }
+
+
+    let button_0=document.createElement('input');
+    button_0.setAttribute('type', 'submit');
+    button_0.setAttribute('value', '×');
+    let style_text_x;
+    if(ua==0){
+        style_text_x='font: bold 15px Arial; width: 14px; height: 24px;'+
+            'margin-right: 15px; padding: 2px 0; vertical-align: 0;'; }
+    else if(ua==1){
+        style_text_x='font: normal 15px Arial; width: 15px; height: 24px;'+
+            'margin-right: 15px; padding: 0; vertical-align: 0;'; }
+    button_0.setAttribute('style', style_text_x);
+    z_panel.appendChild(button_0);
+    button_0.onclick=function(){
+        edit_mode=0;
+        zoom_reset();
+        win_html.style.overflow='auto'; // ウインドウのスクロールを再開
+        z_panel.remove(); }
+
+
+    let input_1=document.createElement('input');
+    input_1.setAttribute('type', 'number');
+    let input_1_style;
+    if(ua==0){
+        input_1_style='font: normal 15px Arial; padding: 1.5px 0 0 8px; width: 36px; '+
+            'box-sizing: content-box; height: 18.8px; vertical-align: 0;'; }
+    else if(ua==1){
+        input_1_style='font: normal 15px Arial; padding: 0 0 0 8px; width: 36px; '+
+            'box-sizing: content-box; height: 21px; vertical-align: 0; border: 1px solid #aaa'; }
+    input_1.setAttribute('style', input_1_style);
+    input_1.setAttribute('step', '5');
+    input_1.setAttribute('min', '80');
+    input_1.setAttribute('max', '200');
+    input_1.setAttribute('id', 'z_input');
+    z_panel.appendChild(input_1);
+
+    if(remember_id.indexOf(user_id)!=-1){
+        zoom_value=remember_zoom[remember_id.indexOf(user_id)]; }
+    else{
+        if(zoom_auto==1){
+            zoom_value=1.14; }
+        else{
+            zoom_value=1; }}
+    input_1.value=Math.round(zoom_value*100);
+
+    document.onwheel=function(event){ // マスウホイールで設定
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        if(event.deltaY<0 && edit_mode==1){
+            input_1.stepUp(); }
+        else if(event.deltaY>0 && edit_mode==1){
+            input_1.stepDown(); }
+        if(edit_mode==1){
+            if(ua==0){
+                document.body.style.zoom=input_1.value/100; }
+            else if(ua==1){
+                fx_zoom(input_1.value/100); }}}
+
+
+    let button_2=document.createElement('input');
+    button_2.setAttribute('type', 'submit');
+    button_2.setAttribute('value', 'Set');
+    let button_2_style;
+    if(ua==0){
+        button_2_style=
+            'font: normal 15px Arial; padding: 2px; margin-left: 4px; height: 24px;'; }
+    if(ua==1){
+        button_2_style=
+            'font: normal 15px Arial; padding: 0 2px; margin-left: 4px; height: 24px;'; }
+    button_2.setAttribute('style', button_2_style);
+    z_panel.appendChild(button_2);
+
+    button_2.onclick=function(){
+        let zoom_set=input_1.value/100; // 登録するzoom倍率
+
+        if(remember_id.indexOf(user_id)==-1){ // 未登録のIDの場合
+            remember_data.push([user_id, zoom_set]); // 等倍も登録する
+            let write_json=JSON.stringify(remember_data);
+            localStorage.setItem('remember_zoom', write_json); }
+        else if(remember_id.indexOf(user_id)!=-1){ // 既登録のIDの場合
+            remember_data.splice(remember_id.indexOf(user_id), 1); // 一旦は登録削除
+            remember_data.push([user_id, zoom_set]); // 登録値を更新して追加
+            let write_json=JSON.stringify(remember_data);
+            localStorage.setItem('remember_zoom', write_json); }
+
+        reg_set();
+        edit_mode=0;
+        do_zoom();
+        win_html.style.overflow='auto'; // ウインドウのスクロールを再開
+        z_panel.remove(); }
+
+
+    let button_3=document.createElement('input');
+    button_3.setAttribute('type', 'submit');
+    button_3.setAttribute('value', 'Reset');
+    let button_3_style;
+    if(ua==0){
+        button_3_style=
+            'font: normal 15px Arial; padding: 2px; margin-left: 4px; height: 24px;'; }
+    if(ua==1){
+        button_3_style=
+            'font: normal 15px Arial; padding: 0 2px; margin-left: 4px; height: 24px;'; }
+    button_3.setAttribute('style', button_3_style);
+    z_panel.appendChild(button_3);
+
+    button_3.onclick=function(){
+        if(remember_id.indexOf(user_id)==-1){ ; } // 未登録のIDの場合
+        else if(remember_id.indexOf(user_id)!=-1){ // 既登録のIDの場合
+            remember_data.splice(remember_id.indexOf(user_id), 1); // Resetは登録削除
+            let write_json=JSON.stringify(remember_data);
+            localStorage.setItem('remember_zoom', write_json); }
+
+        reg_set();
+        edit_mode=0;
+        do_zoom();
+        win_html.style.overflow='auto'; // ウインドウのスクロールを再開
+        z_panel.remove(); }
+
+
+    let button_4=document.createElement('input');
+    button_4.setAttribute('type', 'submit');
+    button_4.setAttribute('value', 'Export');
+    let button_4_style;
+    if(ua==0){
+        button_4_style=
+            'font: normal 15px Arial; padding: 2px; margin: 0 4px 0 15px; height: 24px;' }
+    if(ua==1){
+        button_4_style=
+            'font: normal 15px Arial; padding: 0 2px; margin: 0 4px 0 15px; height: 24px;' }
+    button_4.setAttribute('style', button_4_style);
+    z_panel.appendChild(button_4);
+
+    button_4.onclick=function(){
+        let write_json=JSON.stringify(remember_data);
+        let blob=new Blob([write_json], {type: 'application/json'});
+        try{
+            let a_elem=document.createElement('a');
+            a_elem.href=URL.createObjectURL(blob);
+            document.body.appendChild(a_elem);
+            if(am==0){
+                a_elem.download='remember_zoom.json'; } // 保存ファイル名（一般ブログ記事）
+            else if(am==1){
+                a_elem.download='remember_zoom_am.json'; } // 保存ファイル名（アメンバー記事）
+            if(ua==1){
+                a_elem.target = '_blank';
+                document.body.appendChild(a_elem); }
+            a_elem.click();
+            if(ua==1){
+                document.body.removeChild(a_elem); }
+            URL.revokeObjectURL(a_elem.href);
+            alert("✅  ファイルを保存しました\n"+
+                  "　　ダウンロードフォルダーを確認してください"); }
+        catch(e){
+            alert("❌ ファイル保存時にエラーが発生しました\n"+
+                  "　　ダウンロードフォルダーを確認してください"); }}
+
+
+    let button_5=document.createElement('input');
+    button_5.setAttribute('type', 'submit');
+    button_5.setAttribute('value', 'Import');
+    let button_5_style;
+    if(ua==0){
+        button_5_style=
+            'font: normal 15px Arial; padding: 2px; margin-right: 15px; height: 24px;' }
+    if(ua==1){
+        button_5_style=
+            'font: normal 15px Arial; padding: 0 2px; margin-right: 15px; height: 24px;' }
+    button_5.setAttribute('style', button_5_style);
+    z_panel.appendChild(button_5);
+
+    button_5.onclick=function(){
+        input_5.click(); }
+
+    let input_5=document.createElement('input');
+    input_5.setAttribute('type', 'file');
+    input_5.style.display='none';
+    z_panel.appendChild(input_5);
+
+
+    input_5.addEventListener("change" , function(){
+        if(!(input_5.value)) return; // ファイルが選択されない場合
+        let file_list=input_5.files;
+        if(!file_list) return; // ファイルリストが選択されない場合
+        let file=file_list[0];
+        if(!file) return; // ファイルが無い場合
+
+        let file_reader=new FileReader();
+        file_reader.readAsText(file);
+        file_reader.onload=function(){
+            if((am==0 && file_reader.result.slice(0, 15)=='[["user","zoom"') ||
+               (am==1 && file_reader.result.slice(0, 15)=='[["u_am","zoom"')){ // ファイルデータの確認
+                remember_data=JSON.parse(file_reader.result); // 読出してストレージを上書きする
+                let write_json=JSON.stringify(remember_data);
+                localStorage.setItem('remember_zoom', write_json); // ローカルストレージ 保存名
+                reg_set();
+                zoom_reset(); // 画面の拡大表示をリセット
+                alert("✅　拡大率の登録データを読込みました\n"+
+                      "　　　読込んだファイル名:　" + file.name); }
+            else{
+                alert("❌　Remember My Page の Exportファイルではありません\n"+
+                      "　　　Importファイルは 「remember_zoom ... 」の名前です"); }}});
+
+
+    if(ua==0){
+        let chrome_value=Math.round(((window.outerWidth - 16) / window.innerWidth)*100);
+        if(chrome_value!=100){
+            let button_6=document.createElement('span');
+            let button_6_style;
+            button_6_style='font: normal 15px Arial; color: #fff; background: #0288d1; '+
+                'padding: 3px 4px; border: thin solid #888; border-radius: 3px; transition: 2s;';
+            button_6.setAttribute('style', button_6_style);
+            button_6.innerHTML='Basic ' + chrome_value + '%';
+            z_panel.appendChild(button_6);
+
+            z_panel.style.zIndex='2';
+            setTimeout(()=>{
+                button_6.style.opacity='0';
+            }, 3000);
+            setTimeout(()=>{
+                button_6.remove();
+                z_panel.style.zIndex='0';
+            }, 6000); }}
+
+} // local_backup()
+
+
+
+let target1=document.querySelector('head'); // 監視 target
+let monitor1=new MutationObserver(path_change);
+monitor1.observe(target1, { childList: true }); // 監視開始
+
+function path_change(){ // zoomの設定中にページ変更をした場合
+    let zz_panel=document.querySelector('#z_panel');
+    if(edit_mode==1 && !zz_panel){
+        edit_mode=0;
+        win_html.style.overflow='auto'; // ウインドウのスクロールを再開
+        do_zoom(); } // 画面の拡大表示をリセット
+
+    else if(edit_mode==1 && zz_panel){
+        let zz_input=document.querySelector('#z_input');
+        if(remember_id.indexOf(user_id)!=-1){
+            zoom_value=remember_zoom[remember_id.indexOf(user_id)]; }
+        else{
+            if(zoom_auto==1){
+                zoom_value=1.14; }
+            else{
+                zoom_value=1; }}
+        zz_input.value=Math.round(zoom_value*100); } // 拡大値表示をリセット
+
+} // path_change()
