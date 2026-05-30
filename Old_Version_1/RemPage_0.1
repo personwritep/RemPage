@@ -1,0 +1,139 @@
+// ==UserScript==
+// @name         Remember My Page
+// @namespace    http://tampermonkey.net/
+// @version      0.1
+// @description  ブログページのブラウザ拡大率をユーザー単位で記録・固定(zoom使用)
+// @author       Ameba Blog User
+// @match        https://ameblo.jp/*
+// @exclude      https://ameblo.jp/*/image*
+// @noframes
+// @grant        none
+// ==/UserScript==
+
+
+let remember_data={}; // ブログ登録データ
+let remember_id=[];
+let remember_zoom=[];
+let edit_mode=0;
+let win_html=document.querySelector('html');
+
+reg_set();
+
+function reg_set(){
+    let read_json=localStorage.getItem('remember_zoom'); // ローカルストレージ 保存名
+    remember_data=JSON.parse(read_json);
+    if(remember_data==null){
+        remember_data=[['user', 'zoom']]; }
+
+    remember_id=[]; // 配列をリセット
+    remember_zoom=[]; // 配列をリセット
+
+    for(let k=0; k<remember_data.length; k++){
+        remember_id[k]=remember_data[k][0];
+        remember_zoom[k]=remember_data[k][1]; }}
+
+
+let target0=document.querySelector('head'); // 監視 target
+let monitor0=new MutationObserver(do_zoom);
+monitor0.observe(target0, { childList: true }); // 監視開始
+
+
+function do_zoom(){
+    let zoom_value=1;
+    let user_id=document.location.pathname.split("/")[1];
+
+    if(remember_id.indexOf(user_id)!=-1){
+        zoom_value=remember_zoom[remember_id.indexOf(user_id)];
+        document.body.style.zoom=zoom_value; } // 開いた画面にzoom値を設定して拡大
+
+
+    let z_button=document.querySelector('._jm4LLuUd');
+    z_button.onclick=function(event){ // Amebaアイコンのクリック
+        event.preventDefault(); // クリックしてもホームに飛ばさない
+        local_backup(); }
+
+
+    function local_backup(){
+        edit_mode=1;
+        win_html.style.overflow='hidden'; // ウインドウのスクロールを抑止
+
+        let z_panel=document.createElement('div');
+        let panel_style=
+            'position: absolute; top: 2px; left: 0; padding: 0 30px 0 20px; background: #fff;';
+        z_panel.setAttribute('style', panel_style);
+        z_panel.setAttribute('id', 'z_panel');
+        document.querySelector('._1wfBdJLw').appendChild(z_panel);
+
+        let input_1=document.createElement('input');
+        input_1.setAttribute('type', 'number');
+        let input_style=
+            'font: normal 15px Tahoma; padding: 0 0 0 8px; width: 70px; height: 21px;';
+        input_1.setAttribute('style', input_style);
+        input_1.setAttribute('step', '5');
+        input_1.setAttribute('min', '80');
+        input_1.setAttribute('max', '200');
+        zoom_value=remember_zoom[remember_id.indexOf(user_id)]; // 入力枠表示値を取得
+        if(!zoom_value){
+            zoom_value=1; }
+        input_1.setAttribute('value', Math.round(zoom_value*100)); // 拡大値表示
+        z_panel.appendChild(input_1);
+
+        window.onmousewheel=function(event){ // マスウホイールで設定
+            if(event.wheelDelta>0 && edit_mode==1){
+                input_1.stepUp();
+                document.body.style.zoom=input_1.value/100; }
+            else if(event.wheelDelta<0 && edit_mode==1){
+                input_1.stepDown();
+                document.body.style.zoom=input_1.value/100; }}
+
+        let button_2=document.createElement('input');
+        button_2.setAttribute('type', 'submit');
+        button_2.setAttribute('value', 'SET');
+        let button_style='font: normal 15px Tahoma; padding: 0 2px; '+
+            'margin-left: -36px; height: 23px; ';
+        button_2.setAttribute('style', button_style);
+        z_panel.appendChild(button_2);
+
+        button_2.onclick=function(){
+            edit_mode=0;
+            let zoom_set=input_1.value/100; // 登録するzoom倍率
+
+            if(remember_id.indexOf(user_id)==-1){ // 未登録のIDの場合
+                if(zoom_set!=1){ // 等倍の場合は登録しない
+                    remember_data.push([user_id, zoom_set]);
+                    let write_json=JSON.stringify(remember_data);
+                    localStorage.setItem('remember_zoom', write_json); }}
+
+            else if(remember_id.indexOf(user_id)!=-1){ // 既登録のIDの場合
+                remember_data.splice(remember_id.indexOf(user_id), 1); // 等倍は登録削除
+                if(zoom_set!=1){ // 等倍でない場合は登録値を更新する
+                    remember_data.push([user_id, zoom_set]); }
+                let write_json=JSON.stringify(remember_data);
+                localStorage.setItem('remember_zoom', write_json); }
+
+            reg_set();
+            win_html.style.overflow='auto'; // ウインドウのスクロールを再開
+
+            let zz_panel=document.querySelector('#z_panel');
+            if(zz_panel){
+                zz_panel.remove(); }}
+    }} // do_zoom()
+
+
+let monitor1=new MutationObserver(path_change);
+monitor1.observe(target0, { childList: true }); // 監視開始
+
+function path_change(){ // zoomの設定中にページ変更をした場合
+    if(edit_mode==1){
+        edit_mode=0;
+        win_html.style.overflow='auto'; // ウインドウのスクロールを再開
+
+        let zoom_value=1;
+        let user_id=document.location.pathname.split("/")[1];
+        if(remember_id.indexOf(user_id)!=-1){
+            zoom_value=remember_zoom[remember_id.indexOf(user_id)]; }
+        document.body.style.zoom=zoom_value; // 開いた画面にzoom値を設定して拡大
+
+        let zz_panel=document.querySelector('#z_panel');
+        if(zz_panel){
+            zz_panel.remove(); }}}
